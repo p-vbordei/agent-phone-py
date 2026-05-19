@@ -1,0 +1,12 @@
+{
+  "unary_req": {
+    "plaintext_envelope": {
+      "stream_id": 1,
+      "type": "req",
+      "seq": 0,
+      "method": "echo",
+      "params": { "a": 1, "b": 2 }
+    },
+    "canonical_json_hex": "7b226d6574686f64223a226563686f222c22706172616d73223a7b2261223a312c2262223a327d2c22736571223a302c2273747265616d5f6964223a312c2274797065223a22726571227d"
+  }
+}

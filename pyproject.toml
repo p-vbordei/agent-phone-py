@@ -1,0 +1,60 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agent-phone"
+version = "0.1.0"
+description = "Minimal sync RPC between two AI agents (Python port of @p-vbordei/agent-phone). Self-custody keys, Noise-framework handshake, DID-bound WebSocket."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Vlad Bordei", email = "bordeivlad@gmail.com" }]
+requires-python = ">=3.10"
+keywords = [
+  "noise-protocol", "noise-xk", "websocket", "rpc", "did", "did-key",
+  "ed25519", "x25519", "agent", "ai-agents", "self-custody",
+]
+classifiers = [
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Security :: Cryptography",
+]
+dependencies = [
+  "cryptography>=42.0",
+  "base58>=2.1",
+  "jcs>=0.2.1",
+  "websockets>=12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-asyncio>=0.23",
+  "ruff>=0.5",
+  "mypy>=1.10",
+]
+
+[project.urls]
+Homepage = "https://github.com/p-vbordei/agent-phone-py"
+Reference = "https://github.com/p-vbordei/agent-phone"
+Issues = "https://github.com/p-vbordei/agent-phone-py/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_phone"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "RUF"]
+ignore = ["N818", "B017", "E501", "N806", "RUF002", "RUF003", "RUF006"]
+
+[tool.mypy]
+strict = true
+python_version = "3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
