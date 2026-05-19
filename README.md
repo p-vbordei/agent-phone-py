@@ -1,13 +1,26 @@
 # agent-phone (Python)
 
-> Minimal sync RPC between two AI agents. Self-custody keys, Noise-framework handshake, DID-bound WebSocket.
+[![CI](https://github.com/p-vbordei/agent-phone-py/actions/workflows/ci.yml/badge.svg)](https://github.com/p-vbordei/agent-phone-py/actions/workflows/ci.yml)
+[![Spec](https://img.shields.io/badge/spec-v0.1-blue)](./SPEC.md)
+[![License](https://img.shields.io/badge/license-Apache%202.0-green)](./LICENSE)
 
-Python port of [`@p-vbordei/agent-phone`](https://github.com/p-vbordei/agent-phone). Wire-compatible with the TypeScript reference: same Noise_XK handshake bytes, same canonical JSON envelopes, same conformance vectors.
+> **Idiomatic Python port of [@p-vbordei/agent-phone](https://github.com/p-vbordei/agent-phone).** Minimal sync RPC between two AI agents — Noise-XK handshake over WebSocket, DID-bound peer identity, framed binary transport, self-custody keys. **Wire-format-identical** with the TS reference: the C4 hex vector matches byte-for-byte.
+
+## What's in the box
+
+- Noise-XK handshake (X25519 + ChaCha20Poly1305 + BLAKE2s + HKDF)
+- DID-bound peer identity (Ed25519 → X25519 via SHA-512 + RFC 7748 clamp)
+- Length-prefixed frame transport (ChaChaPoly seal/open)
+- WebSocket client + server (`websockets` asyncio)
+- Session lifecycle (connect, call, stream, close)
+- Backpressure (credit-based streaming with auto-refresh at the half-mark)
 
 ## Install
 
 ```bash
 pip install agent-phone
+# or, for development:
+uv sync --extra dev
 ```
 
 ## Quickstart
@@ -20,48 +33,74 @@ from agent_phone import (
 )
 
 async def main() -> None:
-    kp = generate_key_pair()
-    did = encode_did_key(kp.public_key)
+    resp, init = generate_key_pair(), generate_key_pair()
+    resp_did = encode_did_key(resp.public_key)
 
     server = create_server(ServerOptions(
-        did=did, private_key=kp.private_key,
+        did=resp_did, private_key=resp.private_key,
         handlers={"echo": lambda p: p},
     ))
-    await server.listen(7777)
+    await server.listen(0, hostname="127.0.0.1")
+    port = server.address().port
 
     client = await connect(ClientOptions(
-        url="ws://localhost:7777",
-        did=did, private_key=kp.private_key, responder_did=did,
+        url=f"ws://127.0.0.1:{port}",
+        did=encode_did_key(init.public_key),
+        private_key=init.private_key,
+        responder_did=resp_did,
     ))
-    print(await client.call("echo", {"hi": 1}))
+    print(await client.call("echo", {"hi": 1}))  # {'hi': 1}
     await client.close()
     await server.close()
 
 asyncio.run(main())
 ```
 
-## What
+```bash
+uv run python examples/quickstart.py
+# server listening on 127.0.0.1:<port>
+# noise-xk handshake complete; channel authenticated
+# echo result  : {'hello': 'agent-phone'}
+# closed cleanly
+```
 
-`agent-phone` is a small protocol for two agents to hold a live, authenticated,
-bidirectional conversation over WebSocket. Both agents identify with
-self-custody DIDs (`did:key` v0.1). A Noise_XK handshake binds the transport
-to those DIDs — the session cannot be MITM-swapped. On top of the authenticated
-channel sits a JSON-RPC-like frame with stream support and credit-based
-backpressure.
+## How it relates
 
-## Status
+| Implementation | Status | Wire format |
+|---|---|---|
+| [`@p-vbordei/agent-phone`](https://github.com/p-vbordei/agent-phone) (TypeScript) | Reference | source of truth |
+| [`agent-phone`](https://github.com/p-vbordei/agent-phone-py) (Python, this repo) | Port | byte-identical |
+| [`agent-phone`](https://github.com/p-vbordei/agent-phone-rs) (Rust) | Port | byte-identical |
 
-v0.1 — released 2026-04-24. Spec: [SPEC.md](./SPEC.md).
+## Conformance
 
-## Cross-port compatibility
+The [v0.1 spec](./SPEC.md) defines four conformance clauses; all four pass against the TS test suite.
 
-- Wire-format-compatible with the TypeScript reference and Rust sibling.
-- Passes the same C4 frame-determinism vector as the TS reference.
+- **C1 — Handshake DID-binding.** Swap the responder's static mid-handshake → initiator aborts deterministically at message 2 (AEAD fails). `tests/test_conformance.py::test_c1_handshake_did_binding`.
+- **C2 — Streaming backpressure.** Server emits 10 000 chunks, client grants 8 at a time → outstanding chunks stay bounded; every chunk arrives in order. `test_c2_streaming_backpressure`.
+- **C3 — Graceful cancel.** Cancel mid-stream → server stops within one frame, session stays open for further RPCs. `test_c3_graceful_cancel`.
+- **C4 — Frame determinism.** Canonical envelope bytes match the TS hex vector byte-for-byte. `test_c4_frame_determinism` reads [`vectors/c4.json`](./vectors/c4.json), which mirrors the [TS suite](https://github.com/p-vbordei/agent-phone/tree/main/conformance).
 
-## Sibling ports
+```bash
+uv run pytest -v
+# 31 passed
+```
 
-- TypeScript reference: <https://github.com/p-vbordei/agent-phone>
-- Rust port: <https://github.com/p-vbordei/agent-phone-rs>
+## Architecture
+
+Module map, dependency choices (hand-rolled Noise XK on `cryptography` + manual X25519), Ed25519→X25519 derivation gotcha, byte-determinism invariants, and testing strategy: see [docs/architecture.md](docs/architecture.md).
+
+## Development
+
+```bash
+git clone https://github.com/p-vbordei/agent-phone-py
+cd agent-phone-py
+uv sync --extra dev
+uv run pytest -v
+uv run ruff check .
+```
+
+Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Any change to `noise.py`, `frame.py`, or `envelope.py` must keep the C4 hex vector passing; that's the wire-format contract.
 
 ## License
 
