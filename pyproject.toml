@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "agent-phone"
+name = "kindred-agent-phone"
 version = "0.1.0"
 description = "Minimal sync RPC between two AI agents (Python port of @p-vbordei/agent-phone). Self-custody keys, Noise-framework handshake, DID-bound WebSocket."
 readme = "README.md"
